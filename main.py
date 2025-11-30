@@ -16,7 +16,7 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL = "gemini-1.5-flash-latest"
+MODEL = "models/gemini-2.5-flash"
 
 app = FastAPI()
 
