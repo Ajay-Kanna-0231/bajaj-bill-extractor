@@ -12,20 +12,17 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    raise Exception("GEMINI_API_KEY not found. Add it to .env locally or Render Environment Variables.")
+    raise Exception("GEMINI_API_KEY not found.")
 
 genai.configure(api_key=GEMINI_API_KEY)
-
 MODEL = "models/gemini-2.5-flash"
 
 app = FastAPI()
 
-
 def pil_to_b64(img: Image.Image):
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode()
-
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
 def extract_with_llm(img: Image.Image):
     img_b64 = pil_to_b64(img)
@@ -52,10 +49,8 @@ Rules:
 }
 """
 
-    # Create model instance
     model = genai.GenerativeModel(MODEL)
 
-    # Call Gemini Vision
     result = model.generate_content(
         [
             prompt,
@@ -70,17 +65,7 @@ Rules:
         }
     )
 
-    # Parse the LLM output
-    data = json.loads(result.text)
-
-    # Usage tracking
-    usage = {
-        "input_tokens": getattr(result.usage, "input_tokens", 0),
-        "output_tokens": getattr(result.usage, "output_tokens", 0)
-    }
-
-    return data, usage
-
+    return json.loads(result.text)
 
 @app.post("/extract-bill-data")
 async def extract_bill_data(file: UploadFile = File(...)):
@@ -88,14 +73,14 @@ async def extract_bill_data(file: UploadFile = File(...)):
         file_bytes = await file.read()
         img = Image.open(BytesIO(file_bytes)).convert("RGB")
 
-        data, usage = extract_with_llm(img)
+        data = extract_with_llm(img)
 
-        response = {
+        return {
             "is_success": True,
             "token_usage": {
-                "total_tokens": usage["input_tokens"] + usage["output_tokens"],
-                "input_tokens": usage["input_tokens"],
-                "output_tokens": usage["output_tokens"],
+                "total_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0
             },
             "data": {
                 "pagewise_line_items": [
@@ -108,8 +93,6 @@ async def extract_bill_data(file: UploadFile = File(...)):
                 "total_item_count": len(data.get("bill_items", []))
             }
         }
-
-        return response
 
     except Exception as e:
         return JSONResponse(
